@@ -1,0 +1,275 @@
+pipeline {
+  agent none
+
+  stages {
+
+    // Start of Frontend stages
+    stage('Frontend - HTML Validation using html-validate') {
+      agent {docker {image 'node 20:alpine'}}
+      steps {
+        sh '''
+            npm install -g html-validate
+            html-validate "**/*.html" 
+        '''
+      }
+    }
+
+    stage ('Frontend - CSS Validation using stylelint'){
+        agent {docker {image 'node 20:alpine'}}
+        steps{
+            sh '''
+                npm install -g stylelint
+                stylelint "**/*.css"
+            '''
+        }
+    }
+
+    stage ('Frontend - JS validation using eslint'){
+        agent {docker {image 'node:20-alpine'}}
+        steps{
+            sh ''' 
+                npm install -g eslint
+                eslint "**/*.js"
+            ''' 
+        }
+    }
+    //End of Frontend Validations
+
+
+    //Start of backend validating
+    stage ('Backend - Python linting and format check using ruff'){
+        agent {docker {image 'python:3.11-slim'}}
+        steps{
+            sh ''' 
+                pip install ruff
+                ruff check . 
+                ruff format --check
+            '''
+        }
+    }
+    stage ('Backend - checks for setup mistakes in manage.py'){
+        agent{docker {image 'python:3.11-slim'}}
+        steps{
+            sh ''' 
+                python manage.py check
+            '''
+        }
+    }
+
+    stage ('Backend - checks whether we are safe to go live'){
+        agent{docker {image 'python:3.11-slim'}}
+        steps{
+            sh ''' 
+                python manage.py check --deploy
+            '''
+        }
+    }
+
+    stage ('Backend - checks whether the python code for the database structure (the models) are updated in the migration files'){
+        agent{docker {image 'python:3.11-slim'}}
+        steps{
+            sh ''' 
+                python manage.py makemigrations --check --dry-run
+            '''
+        }
+    }
+
+    stage ('Backend - catches failing tests for the written tests'){
+        agent {docker {image 'python:3.11-slim'}}
+        steps{
+            sh ''' 
+                python manage.py test
+            '''
+        }
+    }
+    // end of Backend Validation
+
+    // Start of Database validation
+    //Creates a temporary Postgres container (with credentials) and inside it, creates another container, and runs python manage.py commands to test whether the migrations and databases are in order.
+    stage('Database - runs tests against a real Postgres database'){
+        agent any
+        steps{
+            script {
+                docker.image('postgres:16').withRun( 
+            //withRun means "start the container (postgres:16), run wtvr code is inside the {}, and auto stop/delte the container afterwards"
+                    '''-e POSTGRES_DB=testdb
+                    -e POSTGRES_USER=testuser
+                    -e POSTGRES_PASSWORD=testpass
+                    -p 5432:5432'''
+                ){c -> docker.image('python:3.11-slim').inside("--link ${c.id}:postgres"){
+                    sh''' 
+                    apt-get update && apt-get install -y libpq-dev gcc netcat-openbsd
+                    pip install -r requirements.txt
+
+                    until nc -z postgres 5432; do
+                        echo "Waiting for Postgres..."
+                        sleep 1
+                    done
+
+                    export DATABASE_URL=postgres://testuser:testpass@postgres:5432/testdb
+                   
+                    python manage.py migrate
+                    python manage.py test
+                    '''
+                }
+
+                }
+                }
+            }
+        }
+        // End of Database checks
+
+
+        // Start of Celery and Redis for Django checks
+        stage ('Celery and Redis Integration'){
+            agent any
+            steps{
+                    sh''' 
+                        echo 'Installing Dependencies'
+                        python -m venv venv
+                        . venv/bin/activate
+                        pip install -r requirements.txt
+
+                        echo 'Start Redis'
+                        docker run -d \
+                            --name redis-ci \
+                            -p 6379:6379 
+                            redis:7-alpine
+                        for i in (1..30); do
+                            if docker exec redis-ci redis-cli ping | grep -q PONG; then
+                                echo "Redis is ready"
+                                break
+                            fi
+
+                            echo "Waiting for Redis..."
+                            sleep 1
+                        done
+
+                        echo 'Start Celery Worker'
+                        . venv/bin/activate
+                        export CELERY_BROKER_URL=redis://localhost:6379/0
+                        celery -A projectname worker \
+                        --loglevel=info \
+                        --detach
+
+                        echo 'Django + Celery Tests'
+                        export CELERY_BROKER_URL=redis://localhost:6379/0
+                        python manage.py test
+
+                        echo 'Celery Integration Tests'
+                        pytest tests/test_celery.py
+
+                    '''
+
+                    sh'''
+                        docker rm -f redis-ci || true
+                     '''
+                }
+            }
+            // End of Celery+Redis
+
+            // Start of Gunicorn + Nginx
+
+            // We do both Gunicorn and Nginx together bcz we need a working Gunicorn setup for the Nginx check too
+            // Start up and hit endpoint with Gunicorn then checks the Nginx config thn check the integration (Nginx -> django -> Gunicorn)
+            stage('Start and hit endpoint with Gunicorn'){
+                agent {docker {image 'docker'}}
+// for this, we need a "health endpoint" in the source code
+                steps{
+                    sh '''
+                        apt-get update
+                        apt-get install -y curl
+
+                        echo "Start and hit endpoint with Gunicorn then checks the Nginx config thn check the integration (Nginx -> django -> Gunicorn)..."
+
+                        pip install -r requirements.txt
+
+                        gunicorn myproject.wsgi:application --bind 127.0.0.1:8000 &
+                        GUNICORN_PID=$!
+
+                        GUNICORN_READY=false
+                        for i in {1..30}; do
+                            if curl -fs https://localhost:8000/health/; then
+                            GUNICORN_READY=true
+                                echo "Gunicorn is ready and healthy"
+                                break
+                            fi
+
+                            echo "Waiting for Gunicorn...."
+                            sleep 1
+                        done
+
+                        if ["$GUNICORN_READY" != "true"]; then
+                            echo "Gunicron failed to start"
+                            exit 1
+                        fi
+
+                        echo "Testing Nginx configeration"
+
+                        nginx -t -c "$PWD/nginx/nginx.conf"
+
+                        echo "Nginx conf is VALID"        
+
+                        '''
+                    }
+/*
+            //Start of Gunicorn test
+            stage('Start and hit endpoint with Gunicorn'){
+                agent {docker {image 'docker'}}
+// for this, we need a "health endpoint" 
+                steps{
+                    sh '''
+                        apt-get update
+                        apt-get install -y curl
+
+                        pip install -r requirements.txt
+
+                        gunicorn myproject.wsgi:application --bind 127.0.0.1:8000 &
+                        GUNICORN_PID=$!
+
+                        GUNICORN_READY=false
+                        for i in {1..30}; do
+                            if curl -fs https://localhost:8000/health/; then
+                            GUNICORN_READY=true
+                                echo "Gunicorn is ready and healthy"
+                                break
+                            fi
+
+                            echo "Waiting for Gunicorn...."
+                            sleep 1
+                        done
+
+                        if ["$GUNICORN_READY" != "true"]; then
+                            echo "Gunicron failed to start"
+                            exit 1
+                        fi
+
+                        kill $GUNICORN_PID
+                    '''
+                }
+            }
+            // End of Gunicorn check 
+
+
+            */
+
+    }
+3
+    stage('Docker Build'){
+        agent {docker {image 'docker'}}
+        steps{
+            sh '''
+                docker build -t my-django-app .
+                docker run -d --name my-django-app-container -p 8000:8000 my-django-app
+                sleep 5
+            '''
+        }
+    }
+
+
+  }
+}
+
+
+
+
