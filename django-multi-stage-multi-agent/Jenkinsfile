@@ -5,7 +5,12 @@ pipeline {
 
     // Start of Frontend stages
     stage('Frontend - HTML Validation using html-validate') {
-      agent {docker {image 'node:20-alpine'}}
+      agent {
+        docker {
+            image 'node:20-alpine'
+            args '-u root'
+            }
+        }
       steps {
         sh '''
             npm install -g html-validate    
@@ -15,7 +20,12 @@ pipeline {
     }
 
     stage ('Frontend - CSS Validation using stylelint'){
-        agent {docker {image 'node:20-alpine'}}
+        agent {
+            docker {
+                image 'node:20-alpine'
+                args '-u root'
+            }
+        }
         steps{
             sh '''
                 npm install -g stylelint
@@ -25,7 +35,12 @@ pipeline {
     }
 
     stage ('Frontend - JS validation using eslint'){
-        agent {docker {image 'node:20-alpine'}}
+        agent {
+            docker {
+                image 'node:20-alpine'
+                args '-u root'
+            }
+        }
         steps{
             sh ''' 
                 npm install -g eslint
