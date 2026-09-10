@@ -45,6 +45,7 @@ pipeline {
         steps{
             sh ''' 
                 npm install -g eslint@8.57.1 eslint-config-airbnb-base eslint-plugin-import
+                export NODE_PATH=$(npm root -g)
                 eslint "**/*.js"
             ''' 
         }
