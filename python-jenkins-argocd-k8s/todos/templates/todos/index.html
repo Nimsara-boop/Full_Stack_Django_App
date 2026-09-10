@@ -17,7 +17,7 @@
   <!-- Add a todo row -->
   <div class="row">
     <div class="offset-md-2 col-lg-9">
-      <form method="post" action="">
+      <form method="post">
         <div class="form-row">
           <div class="col-md-6">
             <input type="text" class="form-control" name="title" placeholder="Do laundry" required>
@@ -34,17 +34,20 @@
       </form>
     </div>
   </div>
-  <hr />
+  <hr>
 
   <!-- todo list row -->
   <div class="row">
     <div class="offset-md-2 col-lg-6">
       <div class="list-group">
-        <div class="list-group-item {% if todo.isCompleted %} todo-complete {% endif %}">
+        <div class="list-group-item {% if todo.isCompleted %} todo-complete">
           <form style="display: inline;" method="post" action="{% url 'todos:update' todo.id %}">
             <input type="checkbox" name="isCompleted" onchange="this.form.submit()">
+            <button type="submit" name="submit" class="btn btn-link">
+              {{ todo.title }}
+            </button>
           </form>
-          <a href="" title="Delete">
+          <a href="" title="Delete"> this is text describing anchor tag
             <i class="far fa-trash-alt"></i>
           </a>
         </div>
