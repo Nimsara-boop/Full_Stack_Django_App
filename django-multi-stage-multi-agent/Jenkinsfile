@@ -62,11 +62,14 @@ pipeline {
             }
         }
         steps{
+                catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+
             sh ''' 
                 pip install ruff
                 ruff check . --fix
                 ruff format --check
             '''
+                }
         }
     }
     stage ('Backend - checks for setup mistakes in manage.py'){
@@ -77,9 +80,11 @@ pipeline {
             }
         }
         steps{
+                catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
             sh ''' 
                 python manage.py check
             '''
+                }
         }
     }
 
@@ -91,11 +96,14 @@ pipeline {
             }
         }
         steps{
-            sh ''' 
-                python manage.py check --deploy
-            '''
+                catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                    sh ''' 
+                        python manage.py check --deploy
+                    '''
+                }
         }
-    }
+        }
+
 
     stage ('Backend - checks whether the python code for the database structure (the models) are updated in the migration files'){
         agent{
@@ -105,9 +113,11 @@ pipeline {
             }
         }
         steps{
-            sh ''' 
-                python manage.py makemigrations --check --dry-run
+            catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                sh ''' 
+                  python manage.py makemigrations --check --dry-run
             '''
+            }
         }
     }
 
@@ -119,10 +129,12 @@ pipeline {
             }
         }
         steps{
-            sh ''' 
+            catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                sh ''' 
                 python manage.py test
             '''
         }
+    }
     }
     // end of Backend Validation
 
