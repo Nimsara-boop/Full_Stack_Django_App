@@ -1,20 +1,21 @@
 pipeline {
   agent none
+
   stages {
 
     // Start of Frontend stages
     stage('Frontend - HTML Validation using html-validate') {
-      agent {docker {image 'node 20:alpine'}}
+      agent {docker {image 'node:20:alpine'}}
       steps {
         sh '''
-            npm install -g html-validate
+            npm install -g html-validate    
             html-validate "**/*.html" 
         '''
       }
     }
 
     stage ('Frontend - CSS Validation using stylelint'){
-        agent {docker {image 'node 20:alpine'}}
+        agent {docker {image 'node:20:alpine'}}
         steps{
             sh '''
                 npm install -g stylelint
