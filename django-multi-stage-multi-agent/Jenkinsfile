@@ -55,7 +55,12 @@ pipeline {
 
     //Start of backend validating
     stage ('Backend - Python linting and format check using ruff'){
-        agent {docker {image 'python:3.11-slim'}}
+        agent {
+            docker {
+                image 'python:3.11-slim'
+                args '-u root'
+            }
+        }
         steps{
             sh ''' 
                 pip install ruff
@@ -65,7 +70,12 @@ pipeline {
         }
     }
     stage ('Backend - checks for setup mistakes in manage.py'){
-        agent{docker {image 'python:3.11-slim'}}
+        agent{
+            docker {
+                image 'python:3.11-slim'
+                args '-u root'
+            }
+        }
         steps{
             sh ''' 
                 python manage.py check
@@ -74,7 +84,12 @@ pipeline {
     }
 
     stage ('Backend - checks whether we are safe to go live'){
-        agent{docker {image 'python:3.11-slim'}}
+        agent{
+            docker {
+                image 'python:3.11-slim'
+                args '-u root'
+            }
+        }
         steps{
             sh ''' 
                 python manage.py check --deploy
@@ -83,7 +98,12 @@ pipeline {
     }
 
     stage ('Backend - checks whether the python code for the database structure (the models) are updated in the migration files'){
-        agent{docker {image 'python:3.11-slim'}}
+        agent{
+            docker {
+                image 'python:3.11-slim'
+                args '-u root'
+            }
+        }
         steps{
             sh ''' 
                 python manage.py makemigrations --check --dry-run
@@ -92,7 +112,12 @@ pipeline {
     }
 
     stage ('Backend - catches failing tests for the written tests'){
-        agent {docker {image 'python:3.11-slim'}}
+        agent {
+            docker {
+                image 'python:3.11-slim'
+                args '-u root'
+            }
+        }
         steps{
             sh ''' 
                 python manage.py test
