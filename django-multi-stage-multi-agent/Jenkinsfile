@@ -5,7 +5,7 @@ pipeline {
 
     // Start of Frontend stages
     stage('Frontend - HTML Validation using html-validate') {
-      agent {docker {image 'node:20:alpine'}}
+      agent {docker {image 'node:20-alpine'}}
       steps {
         sh '''
             npm install -g html-validate    
@@ -15,7 +15,7 @@ pipeline {
     }
 
     stage ('Frontend - CSS Validation using stylelint'){
-        agent {docker {image 'node:20:alpine'}}
+        agent {docker {image 'node:20-alpine'}}
         steps{
             sh '''
                 npm install -g stylelint
@@ -133,9 +133,9 @@ pipeline {
                         echo 'Start Redis'
                         docker run -d \
                             --name redis-ci \
-                            -p 6379:6379 
+                            -p 6379:6379 \
                             redis:7-alpine
-                        for i in (1..30); do
+                        for i in {1..30}; do
                             if docker exec redis-ci redis-cli ping | grep -q PONG; then
                                 echo "Redis is ready"
                                 break
@@ -189,7 +189,7 @@ pipeline {
 
                         GUNICORN_READY=false
                         for i in {1..30}; do
-                            if curl -fs https://localhost:8000/health/; then
+                            if curl -fs http://localhost:8000/health/; then
                             GUNICORN_READY=true
                                 echo "Gunicorn is ready and healthy"
                                 break
@@ -199,7 +199,7 @@ pipeline {
                             sleep 1
                         done
 
-                        if ["$GUNICORN_READY" != "true"]; then
+                        if [ "$GUNICORN_READY" != "true" ]; then
                             echo "Gunicron failed to start"
                             exit 1
                         fi
@@ -212,6 +212,7 @@ pipeline {
 
                         '''
                     }
+            }
 /*
             //Start of Gunicorn test
             stage('Start and hit endpoint with Gunicorn'){
@@ -252,8 +253,6 @@ pipeline {
 
 
             */
-
-    }
     stage('Docker Build'){
         agent {docker {image 'docker'}}
         steps{
