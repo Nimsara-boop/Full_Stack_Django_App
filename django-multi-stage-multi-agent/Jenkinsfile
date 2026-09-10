@@ -29,7 +29,7 @@ pipeline {
         }
         steps{
             sh '''
-                npm install -g stylelint
+                npm install -g stylelint stylelint-config-standard
                 stylelint "**/*.css"
             '''
         }
