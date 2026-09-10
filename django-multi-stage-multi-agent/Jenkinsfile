@@ -4,17 +4,18 @@ pipeline {
   stages {
 
     // Start of Frontend stages
-    stage('Frontend - HTML Validation using html-validate') {
+    // we use djlint to validate the HTML, because normal htmllint will not work with Django template tags
+    stage('Frontend - HTML Validation using djlint') {
       agent {
         docker {
-            image 'node:20-alpine'
+            image 'python:3.11-slim'
             args '-u root'
             }
         }
       steps {
         sh '''
-            npm install -g html-validate    
-            html-validate "**/*.html" 
+            pip install djlint
+            djlint . --lint
         '''
       }
     }

@@ -1,6 +1,10 @@
+{% extends 'todos/base.html' %}
 
+{% block title %}
 <title>Todo list</title>
+{% endblock %}
 
+{% block content %}
 <div class="container">
 
   <!-- title row -->
@@ -17,7 +21,8 @@
   <!-- Add a todo row -->
   <div class="row">
     <div class="offset-md-2 col-lg-9">
-      <form method="post">
+      <form method="post" action="{% url 'todos:add' %}">
+        {% csrf_token %}
         <div class="form-row">
           <div class="col-md-6">
             <input type="text" class="form-control" name="title" placeholder="Do laundry" required>
@@ -28,31 +33,32 @@
             </button>
           </div>
         </div>
-                    <button type="submit" name="submit" class="btn btn-outline-primary">
-              Add
-            </button>
       </form>
     </div>
   </div>
-  <hr>
+  <hr />
 
   <!-- todo list row -->
   <div class="row">
     <div class="offset-md-2 col-lg-6">
       <div class="list-group">
-        <div class="list-group-item {% if todo.isCompleted %} todo-complete">
+        {% for todo in todo_list %}
+        <div class="list-group-item {% if todo.isCompleted %} todo-complete {% endif %}">
           <form style="display: inline;" method="post" action="{% url 'todos:update' todo.id %}">
-            <input type="checkbox" name="isCompleted" onchange="this.form.submit()">
-            <button type="submit" name="submit" class="btn btn-link">
-              {{ todo.title }}
-            </button>
+            {% csrf_token %}
+            <input type="checkbox" name="isCompleted" onchange="this.form.submit()" {% if todo.isCompleted %} checked
+              {% endif %} class="todo-status-checkbox"
+              title="{% if not todo.isCompleted %} mark as done {% else %} mark undone {% endif %}">
           </form>
-          <a href="" title="Delete"> this is text describing anchor tag
+          {{ todo.title }}
+          <a href="{% url 'todos:delete' todo.id %}" title="Delete">
             <i class="far fa-trash-alt"></i>
           </a>
         </div>
+        {% endfor %}
       </div>
     </div>
   </div>
 </div>
 
+{% endblock %}
